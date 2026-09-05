@@ -21,7 +21,7 @@ from telegram.ext import (
 # ─────────────────────────────
 # ⚙️ CONFIG — tweak these
 # ─────────────────────────────
-REMINDER_INTERVAL_SECONDS = 30 * 60   # every 2 hours. Change to e.g. 60*30 for testing (30 min).
+REMINDER_INTERVAL_SECONDS = 30 * 60       # every 30 minutes.
 FIRST_REMINDER_DELAY = 15                 # seconds after /start before the first ping (kept short for testing)
 # Point this at a mounted volume path (e.g. "/data/hydration_data.json") on hosts
 # with ephemeral filesystems, so your streak survives redeploys/restarts.
@@ -35,6 +35,10 @@ TIMEZONE = ZoneInfo("Asia/Kolkata")
 # Default: 11 PM – 7 AM IST. Change these two numbers (24-hour clock) to adjust.
 QUIET_HOURS_START = 23  # 11 PM
 QUIET_HOURS_END = 7     # 7 AM
+
+# Your own numeric Telegram user ID. Only this ID can run /admin.
+# Leave unset and /admin will just refuse everyone. See README for how to find your ID.
+ADMIN_CHAT_ID = os.environ.get("ADMIN_CHAT_ID")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -160,7 +164,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Commands:\n"
         f"/status — check your streak\n"
         f"/stop — pause reminders\n"
-        f"/start — resume reminders"
+        f"/start — resume reminders\n\n"
+        f"🆔 Your Telegram ID: {update.effective_user.id} "
+        f"(handy if you're setting up admin access)"
     )
 
 
@@ -229,6 +235,29 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Reminders paused. Type /start to resume anytime! 🛑💧")
 
 
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    requester_id = str(update.effective_user.id)
+
+    if not ADMIN_CHAT_ID or requester_id != str(ADMIN_CHAT_ID):
+        # Deliberately vague — don't reveal that an admin feature exists.
+        await update.message.reply_text("Unknown command.")
+        return
+
+    data = load_data()
+    if not data:
+        await update.message.reply_text("👑 No users have started the bot yet.")
+        return
+
+    lines = [f"👑 All users ({len(data)} total):\n"]
+    for chat_id, entry in sorted(data.items(), key=lambda kv: kv[1].get("total", 0), reverse=True):
+        name = entry.get("name", "?")
+        streak = entry.get("streak", 0)
+        total = entry.get("total", 0)
+        lines.append(f"• {name} — Streak: {streak} 🔥 | Total: {total} 💧 (ID: {chat_id})")
+
+    await update.message.reply_text("\n".join(lines))
+
+
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
@@ -242,6 +271,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("stop", stop))
+    app.add_handler(CommandHandler("admin", admin))
     app.add_handler(CallbackQueryHandler(button_handler))
 
     logger.info("💧 Hydration bot is running... Press Ctrl+C to stop.")

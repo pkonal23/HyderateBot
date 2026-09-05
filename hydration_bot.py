@@ -21,7 +21,7 @@ from telegram.ext import (
 # ─────────────────────────────
 # ⚙️ CONFIG — tweak these
 # ─────────────────────────────
-REMINDER_INTERVAL_SECONDS = 2 * 60 * 60   # every 2 hours. Change to e.g. 60*30 for testing (30 min).
+REMINDER_INTERVAL_SECONDS = 30 * 60   # every 2 hours. Change to e.g. 60*30 for testing (30 min).
 FIRST_REMINDER_DELAY = 15                 # seconds after /start before the first ping (kept short for testing)
 # Point this at a mounted volume path (e.g. "/data/hydration_data.json") on hosts
 # with ephemeral filesystems, so your streak survives redeploys/restarts.
